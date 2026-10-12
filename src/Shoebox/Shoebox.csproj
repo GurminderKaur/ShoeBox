@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>shoebox</AssemblyName>
+    <RootNamespace>Shoebox</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!-- The whole UI is one offline HTML page, embedded in the executable. No CDNs, no NuGet packages. -->
+  <ItemGroup>
+    <Content Remove="wwwroot/**" />
+    <EmbeddedResource Include="wwwroot/index.html" LogicalName="index.html" />
+  </ItemGroup>
+
+</Project>

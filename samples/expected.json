@@ -1,0 +1,68 @@
+[
+  {
+    "file": "01_fuel.jpg",
+    "vendor": "BOW VALLEY FUEL CO.",
+    "date": "2026-10-03",
+    "subtotal": 61.8,
+    "gst": 3.09,
+    "other": 0,
+    "tip": 0,
+    "total": 64.89,
+    "cat": "9281"
+  },
+  {
+    "file": "02_coffee.jpg",
+    "vendor": "Chinook Coffee House",
+    "date": "2026-10-06",
+    "subtotal": 14.25,
+    "gst": 0.71,
+    "other": 0,
+    "tip": 2.0,
+    "total": 16.96,
+    "cat": "8523"
+  },
+  {
+    "file": "03_office.jpg",
+    "vendor": "PRAIRIE OFFICE SUPPLY",
+    "date": "2026-09-18",
+    "subtotal": 89.97,
+    "gst": 4.5,
+    "other": 0,
+    "tip": 0,
+    "total": 94.47,
+    "cat": "8811"
+  },
+  {
+    "file": "04_courier.jpg",
+    "vendor": "Foothills Courier Ltd.",
+    "date": "2026-09-29",
+    "subtotal": 25.0,
+    "gst": 1.25,
+    "other": 0,
+    "tip": 0,
+    "total": 26.25,
+    "cat": "9275"
+  },
+  {
+    "file": "05_bc_print.jpg",
+    "vendor": "Granville Print Shop",
+    "date": "2026-08-14",
+    "subtotal": 100.0,
+    "gst": 5.0,
+    "other": 7.0,
+    "tip": 0,
+    "total": 112.0,
+    "cat": "8521"
+  },
+  {
+    "file": "06_groceries.jpg",
+    "vendor": "KENSINGTON MARKET GROCERY",
+    "date": "2026-10-08",
+    "subtotal": 37.4,
+    "gst": 0.0,
+    "other": 0,
+    "tip": 0,
+    "total": 37.4,
+    "cat": "personal"
+  }
+]

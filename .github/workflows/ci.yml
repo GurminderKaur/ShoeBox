@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # only used by the release job on version tags
+
+jobs:
+  build:
+    name: Build + self-test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64 }
+          - { os: macos-latest,   rid: osx-arm64 }
+          - { os: ubuntu-latest,  rid: linux-x64 }
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Build
+        run: dotnet build src/Shoebox -c Release
+      - name: Self-test (GST math, categories, checks, CSV safety)
+        run: dotnet run --project src/Shoebox -c Release --no-build -- selftest
+      - name: Publish single-file app
+        run: dotnet publish src/Shoebox -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -o out/${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shoebox-${{ matrix.rid }}
+          path: out/${{ matrix.rid }}/shoebox*
+
+  real-model:
+    name: Read sample receipts with real Gemma 3 (local, via Ollama)
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SHOEBOX_DATA: ${{ github.workspace }}/run-data
+      MODEL: gemma3:4b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Install Ollama and pull Gemma 3 (4B, vision)
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > /tmp/ollama.log 2>&1 &) || true
+          for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags >/dev/null && break; sleep 2; done
+          ollama pull "$MODEL"
+      - name: Read the sample receipts (headless scan)
+        run: dotnet run --project src/Shoebox -c Release -- scan samples/receipts --model "$MODEL" --year 2026 --csv sample-export.csv
+      - name: Score against the known values
+        run: |
+          python3 samples/score.py "$SHOEBOX_DATA"
+          python3 samples/score.py "$SHOEBOX_DATA" --markdown >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-model-run
+          path: |
+            run-data/receipts.json
+            sample-export.csv
+
+  release:
+    name: Attach downloads to the GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, real-model]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dl }
+      - name: Zip each platform
+        run: |
+          cd dl
+          for d in shoebox-*; do (cd "$d" && zip -q -9 "../$d.zip" shoebox*); done
+          ls -la
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dl/shoebox-*.zip
+          generate_release_notes: true

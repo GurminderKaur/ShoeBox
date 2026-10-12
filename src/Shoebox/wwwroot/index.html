@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shoebox — receipts, sorted privately</title>
+<style>
+  :root {
+    --paper: #f7f3ec; --card: #fffdf9; --ink: #2a2622; --muted: #6f665c; --line: #e4dccf;
+    --kraft: #b07a3f; --kraft-soft: #f1e3d0; --ok: #2f7d4f; --ok-soft: #e2f1e7;
+    --warn: #9a5b00; --warn-soft: #fbecd2; --err: #a8322a; --err-soft: #f8dfdc; --focus: #1d5fbf;
+    --radius: 10px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-size: 15px; line-height: 1.45; }
+  header { display: flex; align-items: center; gap: 16px; padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--card); flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+  .brand svg { width: 30px; height: 30px; }
+  .tag { color: var(--muted); font-size: 14px; }
+  .pill { margin-left: auto; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.bad { background: var(--err-soft); color: var(--err); }
+  main { max-width: 1240px; margin: 0 auto; padding: 22px 28px 60px; }
+  .banner { background: var(--err-soft); color: var(--err); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; display: none; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } main, header { padding-left: 16px; padding-right: 16px; } }
+  @media (max-width: 520px) { .settings { grid-template-columns: minmax(0, 1fr); } .tag { display: none; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+  .drop { border: 2px dashed #cdbfa9; background: var(--card); border-radius: var(--radius); padding: 28px 18px; text-align: center; cursor: pointer; transition: background .15s, border-color .15s; }
+  .drop.over { background: var(--kraft-soft); border-color: var(--kraft); }
+  .drop strong { display: block; font-size: 17px; margin-bottom: 4px; }
+  .drop span { color: var(--muted); font-size: 14px; }
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; align-items: center; font-size: 14px; }
+  .settings label { display: flex; align-items: center; gap: 8px; }
+  .settings input[type=number] { width: 70px; }
+  .settings .full { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 18px 0; }
+  @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .stat .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat.accent .v { color: var(--kraft); }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin: 6px 0 10px; flex-wrap: wrap; }
+  .toolbar h2 { font-size: 17px; margin: 0 auto 0 0; }
+  button, select, input { font: inherit; color: inherit; }
+  button { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 7px 13px; cursor: pointer; }
+  button:hover { border-color: #c9bca8; }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.danger { color: var(--err); }
+  button:focus-visible, select:focus-visible, input:focus-visible, .drop:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input, select { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; background: #fff; }
+  .tablewrap { position: relative; overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 1px solid #efe8dc; vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .thumb { width: 44px; height: 56px; object-fit: cover; border-radius: 5px; border: 1px solid var(--line); background: #eee; cursor: zoom-in; }
+  .vendor { font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .b-ok { background: var(--ok-soft); color: var(--ok); } .b-review { background: var(--warn-soft); color: var(--warn); }
+  .b-error { background: var(--err-soft); color: var(--err); } .b-processing { background: #e7ecf5; color: #2f4f86; }
+  .cautions { margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 13px; max-width: 420px; }
+  td.date { white-space: nowrap; }
+  .note { font-size: 13px; color: var(--kraft); }
+  .checks { margin: 6px 0 0; padding-left: 16px; color: var(--warn); font-size: 13px; max-width: 420px; }
+  .src { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s 0.9s linear infinite; vertical-align: -1px; margin-right: 4px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  dialog { border: 0; border-radius: 14px; padding: 0; width: min(980px, 96vw); max-height: 92vh; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  dialog::backdrop { background: rgba(30,25,20,.45); }
+  .editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 520px; }
+  @media (max-width: 760px) { .editor { grid-template-columns: minmax(0, 1fr); } .editor .img { max-height: 40vh; } }
+  .editor .img { background: #2b2724; display: flex; align-items: center; justify-content: center; padding: 12px; max-height: 92vh; overflow: auto; }
+  .editor .img img { max-width: 100%; height: auto; }
+  .editor form { padding: 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; align-content: start; overflow: auto; max-height: 92vh; }
+  .editor form h3 { grid-column: 1/-1; margin: 0 0 4px; }
+  .editor label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+  .editor input, .editor select { width: 100%; min-width: 0; color: var(--ink); }
+  .editor label.full { grid-column: 1/-1; }
+  .editor .actions { grid-column: 1/-1; display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  .editor .raw { grid-column: 1/-1; font-size: 12px; color: var(--muted); }
+  footer { color: var(--muted); font-size: 13px; margin-top: 22px; overflow-wrap: anywhere; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 11h26v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#b07a3f"/><path d="M2 8h28v4H2z" fill="#8a5a28"/><path d="M9 4h12l3 4H9z" fill="#fffdf9" stroke="#8a5a28"/><path d="M11 6h8" stroke="#8a5a28"/></svg>
+    Shoebox
+  </div>
+  <div class="tag">Receipts sorted for tax time · runs on this computer only</div>
+  <div id="pill" class="pill">Checking…</div>
+</header>
+
+<main>
+  <div id="banner" class="banner" role="alert"></div>
+
+  <div class="grid">
+    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Add receipt photos">
+      <strong>Drop receipt photos here</strong>
+      <span>or click to choose · JPG or PNG · read privately by a local AI model</span>
+      <input id="file" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple hidden>
+    </div>
+    <div class="panel settings">
+      <label class="full" style="color:var(--ink)"><input id="gstReg" type="checkbox"> I'm registered for GST (claim GST back as input tax credits)</label>
+      <label>Vehicle business use <input id="veh" type="number" min="0" max="100"> %</label>
+      <label>Phone business use <input id="phone" type="number" min="0" max="100"> %</label>
+      <label>Tax year <select id="year"></select></label>
+      <span class="full">Meals are counted at 50%. Not registered for GST? Then GST is part of your expense. Most people must register once revenue passes $30,000 over four quarters; taxi and ride-share drivers must register regardless. Check with CRA.</span>
+    </div>
+  </div>
+
+  <div class="cards" aria-live="polite">
+    <div class="stat"><div class="k">Receipts</div><div class="v" id="sCount">0</div></div>
+    <div class="stat"><div class="k">Need a look</div><div class="v" id="sReview">0</div></div>
+    <div class="stat"><div class="k">Business spending</div><div class="v" id="sSpent">$0.00</div></div>
+    <div class="stat accent"><div class="k">Deductible (est.)</div><div class="v" id="sDed">$0.00</div></div>
+    <div class="stat"><div class="k">GST back / ITC (est.)</div><div class="v" id="sItc">$0.00</div></div>
+  </div>
+
+  <div class="toolbar">
+    <h2>Receipts</h2>
+    <label class="sub"><input id="onlyReview" type="checkbox"> Only show ones that need a look</label>
+    <button id="export" class="primary">Export for my accountant (CSV)</button>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th><span class="sr">Image</span></th><th>Date</th><th>Vendor</th><th>Category (T2125)</th>
+        <th class="num">Total</th><th class="num">GST</th><th class="num">Deductible</th><th>Status</th><th><span class="sr">Actions</span></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty">No receipts yet. Drop a few photos above. Each one takes about 10–60 seconds to read, depending on your computer.</div>
+  </div>
+
+  <footer>
+    Your receipts and their photos are kept in <code id="dataDir"></code> on this computer. Nothing is uploaded anywhere.
+    Deductible and ITC figures are estimates to help you or your accountant, not tax advice. Keep the original receipts: CRA can ask for records for 6 years.
+  </footer>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="editor">
+    <div class="img"><img id="dlgImg" alt="Receipt photo"></div>
+    <form id="dlgForm" method="dialog">
+      <h3 id="dlgTitle">Check this receipt</h3>
+      <div class="raw" style="margin-top:-6px">Compare with the photo, fix anything that's off, then Save. Saving marks it as checked by you.</div>
+      <label class="full">Vendor <input name="vendor" required></label>
+      <label>Date <input name="date" type="date"></label>
+      <label>Category <select name="category"></select></label>
+      <label class="full">What was bought <input name="items"></label>
+      <label>Subtotal <input name="subtotal" type="number" step="0.01" min="0"></label>
+      <label>GST <input name="gst" type="number" step="0.01" min="0"></label>
+      <label>Other tax (PST etc.) <input name="otherTax" type="number" step="0.01" min="0"></label>
+      <label>Tip <input name="tip" type="number" step="0.01" min="0"></label>
+      <label class="full">Total <input name="total" type="number" step="0.01" min="0" required></label>
+      <label class="full">Notes (e.g. "client lunch with A. Singh") <input name="notes"></label>
+      <div class="raw" id="dlgRaw"></div>
+      <div class="actions">
+        <button type="button" id="dlgCancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const money = n => "$" + Number(n || 0).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const api = (path, opts = {}) => fetch(path, { ...opts, headers: { "X-Shoebox": "1", ...(opts.headers || {}) } })
+  .then(async r => { if (!r.ok) throw new Error((await r.text()) || r.statusText); const t = r.headers.get("content-type") || ""; return t.includes("json") ? r.json() : r.text(); });
+
+let categories = [], receipts = [], settings = {}, editing = null, pollTimer = null;
+
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+
+function showBanner(msg) { const b = $("#banner"); b.textContent = msg || ""; b.style.display = msg ? "block" : "none"; }
+
+async function loadStatus() {
+  try {
+    const s = await api("/api/status");
+    $("#dataDir").textContent = s.dataDir;
+    const p = $("#pill");
+    p.className = "pill " + (s.ready ? "ok" : "bad");
+    p.textContent = s.ready ? `Ready · ${s.model} (local)` : "AI model not ready";
+    showBanner(s.ready ? "" : s.problem);
+  } catch { showBanner("Can't reach Shoebox. Is it still running?"); }
+}
+
+async function loadAll() {
+  [categories, settings] = await Promise.all([api("/api/categories"), api("/api/settings")]);
+  $("#gstReg").checked = settings.gstRegistered;
+  $("#veh").value = settings.vehicleBusinessPercent;
+  $("#phone").value = settings.phoneBusinessPercent;
+  const ySel = $("#year"), now = new Date().getFullYear();
+  ySel.replaceChildren(el("option", { value: "", text: "All years" }));
+  for (let y = now; y >= now - 6; y--) ySel.append(el("option", { value: String(y), text: String(y) }));
+  ySel.value = String(now);
+  const cSel = $("#dlgForm").elements.category;
+  cSel.replaceChildren(...categories.map(c => el("option", { value: c.code, text: c.code === "personal" ? c.name : `${c.code} · ${c.name}` })));
+  await refresh();
+}
+
+async function refresh() {
+  receipts = await api("/api/receipts");
+  const year = $("#year").value;
+  const sum = await api("/api/summary" + (year ? `?year=${year}` : ""));
+  $("#sCount").textContent = sum.receipts; $("#sReview").textContent = sum.needReview;
+  $("#sSpent").textContent = money(sum.spent); $("#sDed").textContent = money(sum.deductible); $("#sItc").textContent = money(sum.itc);
+  render();
+  const busy = receipts.some(x => x.receipt.status === "processing");
+  clearTimeout(pollTimer);
+  if (busy) pollTimer = setTimeout(refresh, 2000);
+}
+
+function catName(code) { const c = categories.find(c => c.code === code); return c ? c.name : code; }
+
+function render() {
+  const onlyReview = $("#onlyReview").checked, year = $("#year").value;
+  const rows = receipts.filter(({ receipt: r }) =>
+    (!onlyReview || r.status === "review" || r.status === "error") &&
+    (!year || r.status === "processing" || r.status === "error" || (r.date || "").startsWith(year + "-") || !r.date));
+  $("#empty").style.display = receipts.length ? "none" : "block";
+  $("#rows").replaceChildren(...rows.map(({ receipt: r, amounts: a }) => {
+    const img = el("img", { class: "thumb", src: `/api/receipts/${r.id}/image`, alt: `Photo of ${r.fileName}`, loading: "lazy", onclick: () => openEditor(r.id) });
+    const statusCell = el("td");
+    if (r.status === "processing") statusCell.append(el("span", { class: "badge b-processing" }, el("span", { class: "spin" }), "Reading…"));
+    else if (r.status === "error") {
+      statusCell.append(el("span", { class: "badge b-error", text: "Couldn't read" }), el("div", { class: "sub", text: r.error || "" }),
+        el("button", { text: "Retry", onclick: () => api(`/api/receipts/${r.id}/retry`, { method: "POST" }).then(refresh) }));
+    } else {
+      statusCell.append(el("span", { class: "badge " + (r.status === "ok" ? "b-ok" : "b-review"), text: r.status === "ok" ? "Looks right" : "Needs a look" }));
+      if (r.checks.length) statusCell.append(el("ul", { class: "checks" }, ...r.checks.map(c => el("li", { text: c }))));
+      if (r.cautions.length) statusCell.append(el("ul", { class: "cautions" }, ...r.cautions.map(c => el("li", { text: (r.editedByUser ? "Checked: " : "") + c }))));
+    }
+    const done = r.status === "ok" || r.status === "review";
+    const src = r.categorySource === "you" ? "set by you" : r.categorySource === "rule" ? "auto: rule" : r.categorySource === "ai" ? "auto: AI" : "";
+    return el("tr", {},
+      el("td", {}, img),
+      el("td", { class: "date", text: r.date || (done ? "—" : "") }),
+      el("td", {}, el("div", { class: "vendor", text: r.vendor || r.fileName }), el("div", { class: "sub", text: r.items || "" }), r.notes ? el("div", { class: "note", text: r.notes }) : null),
+      el("td", {}, done ? el("span", { text: r.category === "personal" ? "Personal" : `${r.category} · ${catName(r.category)}` }) : "", done && src ? el("span", { class: "src", text: `(${src})` }) : null),
+      el("td", { class: "num", text: done ? money(r.total) : "" }),
+      el("td", { class: "num", text: done ? money(r.gst) : "" }),
+      el("td", { class: "num", text: done ? money(a.deductible) : "" }),
+      statusCell,
+      el("td", {}, done ? el("button", { text: "Check / edit", onclick: () => openEditor(r.id) }) : null, " ",
+        el("button", { class: "danger", text: "Delete", "aria-label": `Delete ${r.fileName}`, onclick: () => del(r) })));
+  }));
+}
+
+async function del(r) {
+  if (!confirm(`Delete ${r.vendor || r.fileName}? This also removes the photo from Shoebox.`)) return;
+  await api(`/api/receipts/${r.id}`, { method: "DELETE" }); refresh();
+}
+
+function openEditor(id) {
+  const r = receipts.find(x => x.receipt.id === id)?.receipt; if (!r) return;
+  editing = r;
+  const f = $("#dlgForm").elements;
+  $("#dlgImg").src = `/api/receipts/${r.id}/image`;
+  for (const k of ["vendor", "items", "notes", "category"]) f[k].value = r[k] || "";
+  for (const k of ["subtotal", "gst", "otherTax", "tip", "total"]) f[k].value = Number(r[k] || 0).toFixed(2);
+  f.date.value = /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : "";
+  $("#dlgRaw").textContent = r.raw ? `Read by ${r.model} in ${r.seconds}s from "${r.fileName}". Compare with the photo and fix anything that's off.` : "";
+  $("#dlg").showModal();
+}
+
+$("#dlgForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target.elements;
+  const body = { ...editing };
+  for (const k of ["vendor", "items", "notes", "category", "date"]) body[k] = f[k].value;
+  for (const k of ["subtotal", "gst", "otherTax", "tip", "total"]) body[k] = Number(f[k].value || 0);
+  try {
+    await api(`/api/receipts/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    $("#dlg").close(); refresh();
+  } catch (err) { alert("Couldn't save: " + err.message); }
+});
+$("#dlgCancel").addEventListener("click", () => $("#dlg").close());
+
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f, f.name);
+  try {
+    const res = await api("/api/receipts", { method: "POST", body: fd });
+    showBanner(res.rejected.length ? res.rejected.join(" ") : "");
+  } catch (err) { showBanner("Upload failed: " + err.message); }
+  refresh();
+}
+
+const drop = $("#drop"), file = $("#file");
+drop.addEventListener("click", () => file.click());
+drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } });
+file.addEventListener("change", () => { upload([...file.files]); file.value = ""; });
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => upload([...e.dataTransfer.files]));
+
+async function saveSettings() {
+  settings = { gstRegistered: $("#gstReg").checked, vehicleBusinessPercent: Number($("#veh").value || 0), phoneBusinessPercent: Number($("#phone").value || 0) };
+  await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) });
+  refresh();
+}
+["#gstReg", "#veh", "#phone"].forEach(s => $(s).addEventListener("change", saveSettings));
+$("#year").addEventListener("change", refresh);
+$("#onlyReview").addEventListener("change", render);
+$("#export").addEventListener("click", () => { const y = $("#year").value; location.href = "/api/export.csv" + (y ? `?year=${y}` : ""); });
+
+loadStatus(); loadAll(); setInterval(loadStatus, 15000);
+</script>
+</body>
+</html>
