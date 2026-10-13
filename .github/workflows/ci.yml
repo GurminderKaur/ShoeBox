@@ -3,9 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]   # publishing a release on GitHub builds the downloads and attaches them
 
 permissions:
   contents: write   # only used by the release job on version tags
@@ -39,6 +40,7 @@ jobs:
 
   real-model:
     name: Read sample receipts with real Gemma 3 (local, via Ollama)
+    if: github.event_name != 'release'
     needs: build
     runs-on: ubuntu-latest
     env:
@@ -86,8 +88,8 @@ jobs:
 
   release:
     name: Attach downloads to the GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, real-model]
+    if: github.event_name == 'release'
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -100,4 +102,3 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dl/shoebox-*.zip
-          generate_release_notes: true
