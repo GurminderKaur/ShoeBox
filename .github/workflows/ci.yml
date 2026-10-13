@@ -61,15 +61,21 @@ jobs:
         run: |
           python3 samples/score.py "$SHOEBOX_DATA" | tee score.txt
           python3 samples/score.py "$SHOEBOX_DATA" --markdown >> "$GITHUB_STEP_SUMMARY"
-          # Also publish each line as an annotation, so results are readable via the GitHub API
-          while IFS= read -r line; do echo "::notice title=Gemma 3 on sample receipts::$line"; done < score.txt
+          # Also publish results as annotations (max 10 per step), so they're readable via the GitHub API:
+          # first the raw readings of receipts with any wrong field, then the accuracy line.
           python3 - "$SHOEBOX_DATA" <<'PY'
           import json, sys, os
+          exp = {e["file"]: e for e in json.load(open("samples/expected.json"))}
           for r in json.load(open(os.path.join(sys.argv[1], "receipts.json"))):
-              raw = r.get("raw") or {}
-              msg = f'{r["fileName"]}: status={r["status"]} raw={json.dumps(raw)} checks={r.get("checks")} cautions={r.get("cautions")}'
-              print(f"::notice title=Raw reading {r['fileName']}::{msg}")
+              e, raw = exp.get(r["fileName"]), (r.get("raw") or {})
+              if not e: continue
+              wrong = [k for k, ek in [("subtotal","subtotal"),("gst","gst"),("total","total")] if abs(float(raw.get(k,0)) - e[ek]) > 0.005]
+              if raw.get("date") != e["date"]: wrong.append("date")
+              if r.get("category") != e["cat"]: wrong.append("category")
+              if wrong:
+                  print(f"::notice title=Misread {r['fileName']}::wrong={wrong} status={r['status']} raw={json.dumps(raw)} final_category={r.get('category')} checks={r.get('checks')} cautions={r.get('cautions')}")
           PY
+          grep accuracy score.txt | sed 's/^/::notice title=Gemma 3 accuracy::/' 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
