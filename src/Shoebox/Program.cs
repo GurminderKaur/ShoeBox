@@ -230,7 +230,10 @@ namespace Shoebox
         /// <summary>Headless: add every image in a folder, read it, print results. Used by CI and power users.</summary>
         public static async Task<int> Scan(Options o, Store store, Reader reader)
         {
-            var dir = o.Positional.FirstOrDefault() ?? throw new ArgumentException("Usage: shoebox scan <folder>");
+            var dir = o.Positional.FirstOrDefault();
+            if (dir == null) { Console.Error.WriteLine("Usage: shoebox scan <folder>"); return 1; }
+            dir = Path.GetFullPath(dir);
+            if (!Directory.Exists(dir)) { Console.Error.WriteLine($"Folder not found: {dir}"); return 1; }
             var problem = await reader.CheckAsync();
             if (problem != null) { Console.Error.WriteLine(problem); return 2; }
 
@@ -254,7 +257,7 @@ namespace Shoebox
             var sum = Export.Summarize(store.All(), year, store.Settings);
             Console.WriteLine($"\nSummary{(year is null ? "" : $" for {year}")}: {sum.Receipts} receipts, {sum.NeedReview} need review, spent {Checker.Money(sum.Spent)}, deductible (est.) {Checker.Money(sum.Deductible)}");
             foreach (var l in sum.Lines) Console.WriteLine($"  {l.Code,-5} {l.Name,-44} {l.Count,3}  {Checker.Money(l.Spent),10}  ded {Checker.Money(l.Deductible),10}");
-            if (o.Get("csv") is { } csvPath) { File.WriteAllText(csvPath, Export.Csv(store.All(), year, store.Settings)); Console.WriteLine($"\nCSV written to {csvPath}"); }
+            if (o.Get("csv") is { } csvPath) { csvPath = Path.GetFullPath(csvPath); File.WriteAllText(csvPath, Export.Csv(store.All(), year, store.Settings)); Console.WriteLine($"\nCSV written to {csvPath}"); }
             return store.All().Any(r => r.Status == ReceiptStatus.Error) ? 3 : 0;
         }
 

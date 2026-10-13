@@ -55,8 +55,9 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags >/dev/null && break; sleep 2; done
           ollama pull "$MODEL"
       - name: Read the sample receipts (headless scan)
-        run: dotnet run --project src/Shoebox -c Release -- scan samples/receipts --model "$MODEL" --year 2026 --csv sample-export.csv
+        run: dotnet run --project src/Shoebox -c Release -- scan "$GITHUB_WORKSPACE/samples/receipts" --model "$MODEL" --year 2026 --csv "$GITHUB_WORKSPACE/sample-export.csv"
       - name: Score against the known values
+        if: always()
         run: |
           python3 samples/score.py "$SHOEBOX_DATA"
           python3 samples/score.py "$SHOEBOX_DATA" --markdown >> "$GITHUB_STEP_SUMMARY"
