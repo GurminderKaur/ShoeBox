@@ -44,7 +44,7 @@ git clone https://github.com/GurminderKaur/Shoebox.git
 cd Shoebox\src\Shoebox
 dotnet run -c Release
 ```
-Your browser opens at **http://127.0.0.1:5178**. Drop in receipt photos (JPG or PNG). Each one takes roughly 10–60 seconds to read, depending on your computer.
+Your browser opens at **http://127.0.0.1:5178**. Drop in receipt photos (JPG or PNG). Each one takes up to about a minute and a half to read on a laptop without a graphics card, and less with one.
 
 Prefer not to install .NET? Download the ready-made app for Windows, macOS or Linux from [Releases](https://github.com/GurminderKaur/Shoebox/releases), unzip it, and run `shoebox` (`shoebox.exe` on Windows). You still need Ollama with `gemma3:4b`. On Windows, if SmartScreen warns about an unknown app, click **More info → Run anyway**: the app isn't code-signed.
 
