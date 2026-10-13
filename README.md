@@ -46,7 +46,7 @@ dotnet run -c Release
 ```
 Your browser opens at **http://127.0.0.1:5178**. Drop in receipt photos (JPG or PNG). Each one takes roughly 10–60 seconds to read, depending on your computer.
 
-Prefer not to install .NET? Ready-made downloads for Windows, macOS and Linux are attached to [Releases](https://github.com/GurminderKaur/Shoebox/releases). You still need Ollama with `gemma3:4b`.
+Prefer not to install .NET? Download the ready-made app for Windows, macOS or Linux from [Releases](https://github.com/GurminderKaur/Shoebox/releases), unzip it, and run `shoebox` (`shoebox.exe` on Windows). You still need Ollama with `gemma3:4b`. On Windows, if SmartScreen warns about an unknown app, click **More info → Run anyway**: the app isn't code-signed.
 
 macOS and Linux work the same way: install the .NET 8 SDK and Ollama, then `dotnet run -c Release` in `src/Shoebox`.
 
@@ -63,7 +63,17 @@ shoebox selftest            run the built-in checks
 
 ## How well does the AI read receipts?
 
-On every push, [CI](.github/workflows/ci.yml) runs the real `gemma3:4b` on the six clearly-labelled **sample receipts** in `samples/` (fictional businesses), scores each field against the known values, and posts the table in the run summary. It doesn't hide misreads. The point of the arithmetic checks is that **a misread amount gets flagged "needs a look" instead of slipping into your totals.**
+On every push, [CI](.github/workflows/ci.yml) runs the real `gemma3:4b` on the six clearly-labelled **sample receipts** in `samples/` (fictional businesses) and scores each field against the known values. The latest results, on a CPU-only GitHub runner at about 80 seconds per receipt:
+
+| Field | Vendor | Date | Subtotal | GST | Total | Category |
+|---|---|---|---|---|---|---|
+| Correct | 6/6 | 6/6 | 6/6 | **4/6** | 6/6 | 5/6 |
+
+The two GST misreads are instructive:
+- **Courier receipt:** the model read GST as **$25.00**, copying the subtotal, instead of $1.25. Two checks flagged it: *"Amounts don't add up (off by $23.75)"* and *"GST is 100% of the subtotal"*.
+- **Grocery receipt:** the receipt shows **$0.00 GST** (basic groceries are zero-rated), but the model filled in **$1.87**, which is exactly 5%. In other words, it "assumed" Alberta GST. Flagged: *"Amounts don't add up (off by $1.87)"*.
+
+**Both misread amounts were flagged "needs a look"; neither slipped silently into the totals.** That's the design: the model reads, and plain arithmetic checks it. The grocery receipt was also filed as "Other" instead of "Personal". That's a judgement call no arithmetic can check, which is why every category shows whether it came from a rule, the AI or you.
 
 To regenerate the samples: `python samples/make_samples.py` (needs Pillow).
 
